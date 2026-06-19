@@ -1,0 +1,48 @@
+### Classification Report
+
+| Métrica            | Random Forest | XGBoost | Regresión Logística |
+| ------------------ | ------------- | ------- | ------------------- |
+| **CV F1-Macro**    | **0.4839**    | 0.4669  | 0.4203              |
+| **Test Accuracy**  | **0.5300**    | 0.5150  | 0.5150              |
+| **Test Precision** | **0.4720**    | 0.4401  | 0.4045              |
+| **Test Recall**    | **0.4671**    | 0.4375  | 0.4219              |
+| **Test F1-Macro**  | **0.4992**    | 0.4895  | 0.4303              |
+| **Test ROC-AUC**   | **0.7130**    | 0.6940  | 0.6145              |
+| **Tiempo (s)**     | 123.59        | 198.19  | **0.86**            |
+
+
+Análisis de resultados
+Random Forest lidera en 6 de 7 métricas, siendo el único modelo que supera el 47% en precision y el umbral del 0.71 en AUC. 
+La diferencia más significativa respecto a XGBoost se da en ROC-AUC (1.9 puntos), lo que confirma su superior capacidad para ordenar correctamente las instancias entre clases.  
+
+XGBoost se mantiene competitivo en accuracy y F1, pero su AUC más bajo sugiere que comete errores de clasificación en el ranking que no se reflejan completamente en los umbrales fijos de decisión. 
+Su tiempo de entrenamiento (198.19s) es el mayor de los tres, lo que reduce su atractivo dado que no logra superar a Random Forest en ninguna métrica principal.  
+
+Regresión Logística destaca únicamente en velocidad (0.86s), pero sacrifica rendimiento predictivo. Sus métricas de precision (40.45%) y AUC (0.6145) son las más bajas, 
+confirmando que la relación entre las características disponibles y la variable objetivo no es linealmente separable. 
+Su recall ligeramente superior al de XGBoost (42.19% vs 43.75%) indica un sesgo hacia la predicción de la clase mayoritaria, típico de modelos lineales en problemas desbalanceados.
+El gap entre precision y recall es mínimo en los tres modelos (diferencias de 0.5-1.7 puntos), lo que sugiere umbrales de decisión relativamente equilibrados, 
+aunque la baja magnitud absoluta de ambas métricas refleja la dificultad intrínseca del problema sin la variable de precio unitario.  
+
+Principales Hallazgos
+* Determinismo matemático vs. aprendizaje estadístico. Cuando la variable causal está presente, cualquier algoritmo (incluso un árbol de un nodo) alcanza perfección. Cuando falta, ninguna sofisticación de modelos compensa la ausencia de señal.
+* GridSearchCV no supera límites fundamentales. La optimización de hiperparámetros mejoró el rendimiento en 3-5 puntos porcentuales, pero desde un nivel de azar (50%) hasta un nivel ligeramente superior al azar (53%). El tiempo invertido (322 segundos en total) no se justifica por el retorno obtenido.
+* La relación Sales Category = f(Quantity × Price per Unit) crea una dependencia funcional exacta. Los modelos no "predicen"; ejecutan una regla de negocio codificada en los datos.
+* En todos los escenarios sin Price per Unit, Medium presentó la mayor confusión. Su rango de 120-500 se solapa con Low (cuando Quantity es alta pero precio bajo) y con High (cuando Quantity es moderada pero precio elevado), convirtiéndola en una zona de transición ambigua sin información de precio.
+* Random Forest lideró métricas en ambas fases (0.9947 F1 con Price per Unit, 0.4992 sin ella), pero su ventaja es relativa. En un problema con señal real, la diferencia entre algoritmos sería más significativa. Aquí todos operan cerca del límite teórico impuesto por los datos.
+
+Conclusiones
+El proyecto demuestra que el éxito del machine learning depende fundamentalmente de la calidad y relevancia de las variables de entrada, no de la sofisticación del algoritmo. La inclusión de Price per Unit transforma un problema de clasificación aparentemente complejo en un asunto matemático.  
+Random Forest fue seleccionado como modelo final por ser el mejor en un conjunto de opciones no muy buenas. Su AUC de 0.713 indica capacidad de ranking moderada, pero su accuracy de 53% lo hace inadecuado para cualquier aplicación donde los errores de clasificación tengan costos asociados. 
+La Regresión Logística, a pesar de su velocidad, falló críticamente en la clase High (AUC 0.5156), mientras que XGBoost no justificó su mayor complejidad computacional.  
+El análisis de feature importance confirmó que Quantity es la única variable con poder predictivo legítimo, siendo un componente parcial de Total Amount. Las demás features (Age, Month, DayOfWeek, Product Category) aportan ruido o correlaciones espurias que los modelos aprenden artificialmente.
+
+Recomendaciones
+* No utilizar machine learning para este caso. Implementar directamente la regla de negocio: Sales Category = cut(Quantity × Price per Unit). Esto garantiza 100% de accuracy, interpretabilidad total, tiempo de inferencia nulo y cero dependencias técnicas.
+* Si por política organizacional se requiere un modelo, usar el Árbol de Decisión más simple posible (profundidad 2, un nodo de split). Es interpretable, verificable y alcanza la misma perfección que XGBoost en 0.63 segundos.
+* Reconsiderar el objetivo del modelo. Con 53% accuracy máximo, las predicciones no son confiables para automatización. El modelo podría usarse solo como herramienta de exploración o scoring de riesgo, nunca para decisión final.
+* Enriquecer el dataset. Investigar proxies de precio (categoría de producto con precios estándar, histórico de transacciones del cliente, región geográfica con niveles de precio medios).
+* Reformular como problema de regresión. Predecir Total Amount directamente mediante Quantity y otras variables, luego aplicar los cortes de categoría. Esto podría capturar relaciones que la clasificación directa no percibe.
+
+Random Forest es el mejor modelo disponible, pero el verdadero hallazgo del proyecto es que no se necesita machine learning. 
+Con Price per Unit, una regla de negocio supera a cualquier algoritmo. Sin ella, ningún algoritmo produce resultados útiles. 
